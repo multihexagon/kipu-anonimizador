@@ -25,7 +25,8 @@ Resources:
     Properties:
       GroupDescription: kipu-anonimizador HTTP publico
       SecurityGroupIngress:
-        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }   # ACME (Let's Encrypt) + redirección
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 } # HTTPS (Caddy)
 
   Role:
     Type: AWS::IAM::Role
@@ -112,8 +113,8 @@ Resources:
 
 Outputs:
   BaseUrl:
-    Description: URL para pegar en Frontier (VALIDAR ENTRYPOINT)
-    Value: !Sub "http://${ElasticIp}/v1"
+    Description: URL para pegar en Frontier (VALIDAR ENTRYPOINT). sslip.io resuelve la IP; Caddy pone HTTPS.
+    Value: !Join ["", ["https://", !Join ["-", !Split [".", !Ref ElasticIp]], ".sslip.io/v1"]]
   HealthUrl:
     Value: !Sub "http://${ElasticIp}/v1/health"
   InstanceId:
