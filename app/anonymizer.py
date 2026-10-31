@@ -317,6 +317,14 @@ class Anonymizer:
             else:
                 val = sur_p[min(i, len(sur_p) - 1)]
             out.append(self._case_like(tok, val))
+        if len(toks) >= 2:
+            # Mención con nombre y apellido → SIEMPRE el seudónimo completo (como la salida ideal),
+            # con el estilo de la mención (mayúsculas/minúsculas/tildes y separador).
+            n_sur = max(1, len(p.tokens) - g) if p.tokens else 1
+            full = given_p[:max(1, g)] + sur_p[:n_sur]
+            style = next((t for t in toks if t), toks[0])
+            sep = seps[0] if seps else " "
+            return sep.join(self._case_like(style, v) for v in full)
         res = toks and out[0] or ""
         for sep, val in zip(seps, out[1:]):
             res += sep + val
