@@ -24,7 +24,9 @@ def _anonymizer() -> Anonymizer:
     base = storage.REGISTRY / "base.json"
     reg = storage.REGISTRY / "registry.json"
     if not base.exists():
-        raise HTTPException(409, "no hay corrida terminada todavía: llama POST /run primero")
+        if _cache["anon"] is None:
+            _cache["anon"] = Anonymizer({"tables": []}, {}, Registry(reg))
+        return _cache["anon"]
     stamp = (base.stat().st_mtime, reg.stat().st_mtime if reg.exists() else 0)
     if _cache["stamp"] != stamp:
         data = json.loads(base.read_text(encoding="utf-8"))

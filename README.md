@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 | Variable | Para qué |
 | --- | --- |
-| `DATA_DIR` | carpeta persistente (en Railway: volumen montado en `/data`) |
+| `DATA_DIR` | carpeta persistente (en EC2: `/data` en el disco de la instancia) |
 | `PSEUDO_SECRET` | clave secreta de los seudónimos. **Nunca cambiarla entre corridas.** |
 | `ANONYMIZE_READY` | `1` habilita `/anonymize`; mientras no, responde 503 para no gastar corridas de evaluación |
 | `TEAM_NAME`, `APP_VERSION`, `LLM_MODELS` | lo que reporta `/health` |

@@ -459,7 +459,10 @@ class Anonymizer:
                 context.add(key)
             elif kind == "phone":
                 key = self.idx["phone"].get(val) or self._third_party("PH:" + val, "")
-                add(s, e, self.reformat_digits(orig, self.pseudo_digits(key, "phone", val)), key, "phone", orig)
+                newd = self.pseudo_digits(key, "phone", val)
+                if len(digits(orig)) == 12 and digits(orig).startswith("57"):
+                    newd = "57" + newd
+                add(s, e, self.reformat_digits(orig, newd), key, "phone", orig)
                 context.add(key)
             elif kind == "cedula":
                 key = self.idx["doc"].get(val)
@@ -489,12 +492,6 @@ class Anonymizer:
                     add(m.start(), m.end(), self.pseudo_simple(key, "birth", b), key, "birth_iso", b)
 
         folded = fold(text)
-        # 3) organizaciones conservadas (reservan su span para que nadie las toque)
-        for m in self.keep_rx.finditer(folded):
-            if free(m.start(), m.end()):
-                taken.append((m.start(), m.end()))
-                self.kept_found[text[m.start():m.end()]].add(record_id)
-
         # 4) nombres conocidos (variantes de 2+ tokens)
         for m in self.name_rx.finditer(folded):
             s, e = m.span()
@@ -506,6 +503,12 @@ class Anonymizer:
             key = self._pick(keys, context, hints)
             add(s, e, self.shape_name(key, orig), key, "name", orig)
             context.add(key)
+
+        # 3) organizaciones conservadas (reservan su span para que nadie las toque)
+        for m in self.keep_rx.finditer(folded):
+            if free(m.start(), m.end()):
+                taken.append((m.start(), m.end()))
+                self.kept_found[text[m.start():m.end()]].add(record_id)
 
         # 5) terceros: Nombre Apellido con nombre de pila conocido y no registrado
         for m in re.finditer(r"\b([A-ZÁÉÍÓÚÑ][a-záéíóúñü]+|[A-ZÁÉÍÓÚÑ]{2,})(?:\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][a-záéíóúñü]+|[A-ZÁÉÍÓÚÑ]{2,})){1,3}\b", text):
@@ -576,6 +579,11 @@ class Anonymizer:
                                 add(mm.start(), mm.end(), "hace unos años", key, "year_ctx", year)
 
         return apply_spans(text, spans)
+
+    def _employee_keys(self) -> set[str]:
+        if not hasattr(self, "_emp"):
+            self._emp = {k for k, p in self.people.items() if p.source == "empleado"}
+        return self._emp
 
     def _pick(self, keys, context, hints):
         for k in keys:
@@ -730,7 +738,8 @@ class Anonymizer:
                     continue
                 if col in self.HANDLED_COLS:
                     continue
-                c[col] = self.anonymize_text(val, rid, set(context))
+                hints = self._employee_keys() if t == "empleados" else None
+                c[col] = self.anonymize_text(val, rid, set(context), hints)
             out.append({**r, "columns": c})
         return out
 
