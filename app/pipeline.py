@@ -1,14 +1,15 @@
 """Pipeline completo: descarga → normaliza → registro de personas → detecta → reemplaza → escribe output/.
 
-Estado actual: descarga y normalización listas. La anonimización (anonymizer.anonymize_corpus)
-todavía es un paso identidad: NO usar esta salida para una corrida de evaluación.
+El registro de personas (seudónimos congelados) se persiste en DATA_DIR/registry/registry.json.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from app import normalize
+from app import normalize, storage
+from app.anonymizer import Anonymizer
+from app.pseudonyms import Registry
 from app.sources import ApiSource
 
 
@@ -28,8 +29,17 @@ def run_from_source(src, out_dir: Path) -> dict:
     corpus = {"chats": chats, "docs": docs, "tables": tables}
     _check_one_to_one(corpus, index)
 
-    # TODO: registro de personas + detección + seudónimos + reemplazo
-    entities: list[dict] = []
+    # Base para /anonymize: tablas y usuarios reales (solo en el disco del servidor, nunca en el repo)
+    storage.write_json_atomic(storage.REGISTRY / "base.json", {"tables": tables, "users": users})
+    registry = Registry(storage.REGISTRY / "registry.json")
+    anon = Anonymizer(corpus, users, registry)
+    corpus = {
+        "tables": anon.tables(tables),
+        "chats": anon.chats(chats),
+        "docs": anon.docs(docs),
+    }
+    entities = anon.entities_json()["entities"]
+    registry.save()
 
     for source, recs in corpus.items():
         _write_jsonl(out_dir / f"{source}.jsonl", recs)

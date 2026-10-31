@@ -149,6 +149,8 @@ def load_tables(src, record_index: dict) -> list[dict]:
 
     out = []
     for table, fname in _TABLE_FILES.items():
+        if table not in wanted:
+            continue
         raw = src.table_bytes(fname)
         rows = _csv_rows(raw, fname) if fname.endswith(".csv") else _xml_rows(raw)
         key_col = _key_column(rows, wanted.get(table, set()))

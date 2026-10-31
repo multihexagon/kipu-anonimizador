@@ -55,10 +55,15 @@ class Registry:
         self.by_key: dict[str, dict] = {}  # entity_key -> {name, email, phone, ...}
         self.used: set[str] = set()  # valores ya entregados (normalizados), para unicidad
         self.forbidden: set[str] = set()  # formas reales del corpus (normalizadas)
+        self.forbidden_pairs: set[str] = set()  # "nombre apellido" reales, para que un seudónimo parcial no choque
         if path and path.exists():
             self.by_key = json.loads(path.read_text(encoding="utf-8"))
             for p in self.by_key.values():
-                self.used.update(norm(v) for v in p.values())
+                for v in p.values():
+                    if isinstance(v, str):
+                        self.used.add(norm(v))
+                    elif isinstance(v, dict):
+                        self.used.update(v.values())
 
     def save(self) -> None:
         if not self.path:
@@ -86,6 +91,11 @@ class Registry:
         for attempt in range(1000):
             val = gen(key, gender, rec, str(attempt))
             n = norm(val)
+            if kind == "name":
+                t = n.split()
+                pairs = {f"{t[0]} {t[2]}", f"{t[1]} {t[2]}", f"{t[0]} {t[1]} {t[2]}", f"{t[0]} {t[2]} {t[3]}"} if len(t) >= 4 else set()
+                if pairs & self.forbidden_pairs:
+                    continue
             if n not in self.used and n not in self.forbidden:
                 self.used.add(n)
                 return val

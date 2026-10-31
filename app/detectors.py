@@ -14,8 +14,8 @@ EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # correo dictado: "lucia ferrer arroba gmail punto com", "lucia.ferrer (arroba) gmail (punto) com"
 PHONE = re.compile(r"(?<!\d)(?:\+?57[\s.-]?)?3\d{2}[\s.-]?\d{3}[\s.-]?\d{4}(?!\d)")
 CEDULA = re.compile(r"(?<![\d-])(?:\d{1,3}(?:[.\s]\d{3}){2,3}|\d{6,10})(?![\d-])")
-PLATE = re.compile(r"\b[A-Z]{3}[\s-]?\d{3}\b|\b[A-Z]{3}[\s-]?\d{2}[A-Z]\b")
-PASSPORT = re.compile(r"\b(?:[A-Z]{2}\d{6,7}|[A-Z]\d{7,8})\b")
+PLATE = re.compile(r"(?<![A-Za-z0-9])(?:[A-Z]{3}[\s-]?\d{3}|[A-Z]{3}[\s-]?\d{2}[A-Z])(?![A-Za-z0-9])")
+PASSPORT = re.compile(r"(?<![A-Za-z0-9])(?:[A-Z]{2}\d{6,7}|[A-Z]\d{7,8})(?![A-Za-z0-9])")
 SLACK_MENTION = re.compile(r"<@([A-Z0-9]+)(?:\|([^>]+))?>")
 
 
