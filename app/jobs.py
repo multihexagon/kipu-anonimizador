@@ -30,6 +30,10 @@ def get_status(job_id: str) -> dict | None:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def is_busy() -> bool:
+    return _active is not None
+
+
 def start_or_get_active(sources_url: str, token: str) -> str:
     global _active
     with _lock:

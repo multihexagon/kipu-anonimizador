@@ -40,7 +40,7 @@ def root():
 
 @app.get("/v1/health")
 def health():
-    return {"status": "ok", "team": TEAM, "version": VERSION, "models": MODELS}
+    return {"status": "ok", "team": TEAM, "version": VERSION, "models": MODELS, "busy": jobs.is_busy()}
 
 
 @app.post("/v1/run", status_code=202)

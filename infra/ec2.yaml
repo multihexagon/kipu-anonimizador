@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Kipu anonimizador - una instancia EC2 con Docker que sirve /v1 en el puerto 80 (IP elastica fija).
+  Se autodespliega desde el repo publico cada 2 minutos, nunca durante una corrida activa.
+  La clave de seudonimos se genera en la instancia y nunca sale de ella.
+
+Parameters:
+  RepoUrl:
+    Type: String
+    Default: https://github.com/multihexagon/kipu-anonimizador
+  Branch:
+    Type: String
+    Default: main
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small, t3.medium]
+  LatestAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: kipu-anonimizador HTTP publico
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: ec2.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns:
+        # Acceso por Session Manager (consola) para depurar, sin llaves SSH ni puerto 22 abierto
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref Role]
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmi
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds: [!GetAtt SecurityGroup.GroupId]
+      CreditSpecification: { CPUCredits: standard }
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 20, VolumeType: gp3, DeleteOnTermination: true }
+      Tags:
+        - { Key: Name, Value: kipu-anonimizador }
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y docker git cronie
+          # 1 GB de swap: t3.micro solo trae 1 GB de RAM
+          if [ ! -f /swapfile ]; then dd if=/dev/zero of=/swapfile bs=1M count=1024 && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile; fi
+          systemctl enable --now docker crond
+
+          mkdir -p /opt/kipu /data
+          # Clave de seudonimos: se crea una sola vez y se conserva en el disco de la instancia.
+          if [ ! -f /opt/kipu/secret ]; then
+            head -c 32 /dev/urandom | base64 | tr -d '\n' > /opt/kipu/secret
+            chmod 600 /opt/kipu/secret
+          fi
+
+          cat > /opt/kipu/deploy.sh <<'EOS'
+          #!/bin/bash
+          # Redespliega si hay commits nuevos. Nunca interrumpe una corrida activa.
+          set -euo pipefail
+          cd /opt/kipu
+          if [ ! -d src/.git ]; then git clone --branch ${Branch} ${RepoUrl} src; FORCE=1; fi
+          cd src
+          git fetch -q origin ${Branch}
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/${Branch})" ] && [ -z "${!FORCE:-}" ] \
+             && docker ps --format '{{.Names}}' | grep -q '^kipu$'; then
+            exit 0
+          fi
+          if curl -fsS localhost/v1/health 2>/dev/null | grep -q '"busy": *true'; then
+            echo "corrida activa, posponiendo redeploy"; exit 0
+          fi
+          git reset -q --hard origin/${Branch}
+          docker build -q -t kipu:latest .
+          docker rm -f kipu 2>/dev/null || true
+          docker run -d --name kipu --restart always -p 80:9000 \
+            -v /data:/data \
+            -e DATA_DIR=/data \
+            -e TEAM_NAME=kipu-anonimizador \
+            -e APP_VERSION="$(git rev-parse --short HEAD)" \
+            -e PSEUDO_SECRET="$(cat /opt/kipu/secret)" \
+            kipu:latest
+          docker image prune -f >/dev/null
+          echo "desplegado $(git rev-parse --short HEAD)"
+          EOS
+          chmod +x /opt/kipu/deploy.sh
+
+          FORCE=1 /opt/kipu/deploy.sh
+          echo '*/2 * * * * root /opt/kipu/deploy.sh >> /var/log/kipu-deploy.log 2>&1' > /etc/cron.d/kipu-deploy
+
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref Instance
+
+Outputs:
+  BaseUrl:
+    Description: URL para pegar en Frontier (VALIDAR ENTRYPOINT)
+    Value: !Sub "http://${ElasticIp}/v1"
+  HealthUrl:
+    Value: !Sub "http://${ElasticIp}/v1/health"
+  InstanceId:
+    Value: !Ref Instance
