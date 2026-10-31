@@ -522,7 +522,7 @@ class Anonymizer:
             context.add(key)
 
         # 5b) presentaciones explícitas de personas no registradas
-        for m in re.finditer(r"(?:\b(?:soy|me llamo|mi nombre es|habla|a nombre de|señora|señor|sra\.?|sr\.?|doña|don)\s+)((?:[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+)(?:\s+(?:de\s+)?[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+){1,3})", text, re.I):
+        for m in re.finditer(r"(?i:\b(?:soy|me llamo|mi nombre es|habla|a nombre de|señora|señor|sra\.?|sr\.?|doña|don)\s+)((?:[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+)(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñü]+){1,3})", text):
             s, e = m.span(1)
             name = m.group(1)
             if not free(s, e) or not name[:1].isupper() or fold(name.split()[0]) in COMMON_WORD_NAMES:
@@ -587,9 +587,19 @@ class Anonymizer:
         return keys[0]
 
     def _third_party(self, key: str, name: str) -> str:
-        if key not in self.people:
-            p = Person(key, name or "Persona Desconocida", "tercero")
-            self.people[key] = p
+        if key in self.people:
+            return key
+        f = fold(re.sub(r"\s+", " ", name.strip())) if name else ""
+        if not hasattr(self, "_tp_by_name"):
+            self._tp_by_name = {}
+        if f and len(f.split()) >= 2 and f in self._tp_by_name:
+            return self._tp_by_name[f]
+        if f and len(f.split()) >= 2 and self.variant_to_keys.get(f):
+            return self.variant_to_keys[f][0]  # p. ej. correo dictado de una persona ya registrada
+        p = Person(key, name or "Persona Desconocida", "tercero")
+        self.people[key] = p
+        if f and len(f.split()) >= 2:
+            self._tp_by_name[f] = key
         return key
 
     # ------------------------------------------------------------------ registros

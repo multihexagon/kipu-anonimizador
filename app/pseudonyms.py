@@ -23,7 +23,9 @@ SECRET = os.environ.get("PSEUDO_SECRET", "dev-secret-cambiar").encode()
 NOMBRES_F = """Adriana Alejandra Ana Andrea Ángela Beatriz Carolina Catalina Claudia Daniela Diana Elena
 Esperanza Estefanía Gabriela Gloria Isabel Jimena Juliana Laura Liliana Lorena Luisa Marcela Margarita María
 Mariana Mónica Natalia Nathalia Olga Paola Patricia Paula Pilar Rocío Rosa Sandra Silvia Sofía Susana Tatiana
-Valeria Verónica Viviana Yolanda Ximena Yuliana Zulma Camila Lina""".split()
+Valeria Verónica Viviana Yolanda Ximena Yuliana Zulma Camila Lina Kelly Leidy Yenny Nelly Fanny Doris Inés
+Ruth Nohora Norma Dora Gladys Amparo Alba Elvira Edith Irene Karen Miriam Nancy Sonia Stella Teresa Alicia Helena
+Pamela Amalia Yesenia Johana Jennifer Erika Marisol Maribel Nubia Raquel Judith Esther Carmen Mercedes Ingrid""".split()
 NOMBRES_M = """Alberto Alejandro Andrés Antonio Camilo Carlos César Cristian Daniel David Diego Eduardo Esteban
 Fabián Felipe Fernando Francisco Gabriel Germán Gonzalo Gustavo Hernán Iván Jaime Javier Jorge José Julián
 Leonardo Luis Manuel Mario Mauricio Miguel Nicolás Óscar Pablo Rafael Ramiro Ricardo Roberto Rodrigo Santiago
@@ -198,7 +200,9 @@ def guess_gender(first_name: str) -> str:
         return "f"
     if f in mas:
         return "m"
-    if f.endswith("a") and f not in {"luca", "nicola", "andrea"}:
+    if f.endswith("a") and f not in {"luca", "nicola"}:
+        return "f"
+    if f.endswith("y") and f not in {"jhonny", "johnny", "henry", "freddy", "fredy", "harry", "andy", "jeffry", "jeffrey"}:
         return "f"
     if f.endswith(("o", "os", "el", "an", "on", "er", "es", "or")):
         return "m"
