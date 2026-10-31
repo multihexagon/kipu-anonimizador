@@ -1,0 +1,12 @@
+# Datos reales del reto: NUNCA al repo (es público)
+data/
+sample/
+sample.zip
+fuentes/
+output/
+*.env
+.env*
+
+__pycache__/
+*.pyc
+.venv/
